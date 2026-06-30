@@ -87,3 +87,96 @@ The form's state-management logic in the front-end code (typically react/angular
 
 ### Screenshot
 ![Silent Reset of Seat/Berth Preferences](../assets/screenshots/seat_selection_reset.png)
+
+---
+
+## 4. Aggressive & Silent Session Timeouts
+
+### What is broken
+For security reasons, IRCTC implements a highly aggressive session timeout mechanism (usually between 3 to 5 minutes of inactivity). However, the system does not display an active countdown timer or warn the user that their session is about to expire. The timeout happens silently. The next action (such as submitting passenger details, clicking "Continue", or initiating payment) immediately logs out the user, showing a generic "Session Expired" alert, and completely deletes all form inputs, forcing the user to restart from search results.
+
+### Who is affected
+Elderly passengers, slow typers, individuals double-checking passport/ID details, and passengers with visual or motor impairments who require more time to navigate and complete web forms.
+
+### Frequency
+High. Occurs on almost every transaction flow where the user spends more than 3-5 minutes on passenger entry or payment page review.
+
+### Current flow
+1. User searches for a train and clicks "Book Now" to reach the passenger entry screen.
+2. User begins entering passenger details for a group of four passengers, manually typing names, ages, ID card numbers, and food preferences.
+3. Since they are typing carefully and cross-referencing ID details, they spend approximately 4 minutes on the page.
+4. The server session expires silently in the background without any pop-up warning or notification.
+5. User completes the captcha at the bottom of the page and clicks "Continue".
+6. Instead of loading the review screen, the browser reloads the login screen and throws a generic modal: "Session Expired. Please log in again."
+7. All entered passenger data is deleted, and the user must start the entire process from the search page.
+
+### Where it breaks
+Session management layer on the client and server side, where inactivity is handled silently without triggering client-side warnings or saving draft state.
+
+### How I found it
+Verified by opening the IRCTC portal, navigating to the booking page, waiting 4 minutes without clicking, and then trying to proceed. The session timed out silently and redirected to the login page.
+
+### Screenshot
+![Aggressive & Silent Session Timeouts](../assets/screenshots/session_timeout.png)
+
+---
+
+## 5. Multi-Stage Captcha Verification Failures and Accessibility Barriers
+
+### What is broken
+The IRCTC platform enforces distorted alphanumeric captchas at multiple stages (both at Login and right before Payment) to prevent automated bot scripts. However, these captchas are poorly designed, highly noisy, and case-sensitive, making them extremely difficult for human eyes to read. Even worse, the audio captcha feature is completely broken, either failing to play or outputting unintelligible noise. Under high server load (e.g., during Tatkal bookings), correct captchas are often flagged as incorrect due to latency issues, locking users in a frustrating verification loop.
+
+### Who is affected
+Visually impaired users, users with reading difficulties (dyslexia), and all general users under severe time constraints during Tatkal bookings.
+
+### Frequency
+High. Captcha entry is mandatory on 100% of bookings, and error loops happen frequently during high-traffic hours.
+
+### Current flow
+1. User logs in or reaches the booking confirmation step before proceeding to payment.
+2. An extremely distorted image containing numbers and letters (with overlapping lines and background noise) is shown.
+3. User attempts to read the characters, but confuses similar shapes (e.g., 'O' and '0', 'l' and '1', or case differences).
+4. User enters the guess. The page reloads saying "Invalid Captcha Code".
+5. User attempts to use the "Audio Captcha" feature for assistance.
+6. The audio icon fails to load, or plays distorted static noise that has no correlation to the characters, making it useless.
+7. The user is locked out of logging in or misses their Tatkal slot because the seat quota fills up in seconds.
+
+### Where it breaks
+The Captcha verification widget at Login and Review Booking stages.
+
+### How I found it
+Tested the login and review steps multiple times. Observed that the captcha images have poor contrast and the audio captcha is consistently broken or unplayable.
+
+### Screenshot
+![Multi-Stage Captcha Verification Failures](../assets/screenshots/captcha_friction.png)
+
+---
+
+## 6. Obscure and Nested Ticket Cancellation & TDR Filing
+
+### What is broken
+When a train is delayed by over 3 hours or a passenger cannot travel, they are entitled to a full or partial refund. However, the features to cancel a ticket and file a TDR (Ticket Deposit Receipt) are intentionally obscured in the UI. Instead of being accessible from the main dashboard, the active bookings page, or a prominent "Manage Booking" button, they are hidden under nested sub-menus in the user profile. The UI does not provide simple explanations of refund rules; instead, it forces users to decipher a long list of warning codes and links to external PDF tables.
+
+### Who is affected
+Passengers dealing with sudden train delays, cancellations, or emergency travel changes.
+
+### Frequency
+Constant. Happens 100% of the time whenever a passenger needs to cancel a ticket or file a TDR.
+
+### Current flow
+1. User learns their train is delayed by over 3 hours and wants to file a TDR for a refund.
+2. User opens the IRCTC homepage. There is no link or button on the main navigation panel for "TDR" or "Quick Cancellation".
+3. User must click "My Account" -> "My Transactions" -> "Booked Ticket History".
+4. User scrolls through past bookings to find the active ticket.
+5. The options to "Cancel Ticket" and "File TDR" are hidden under a tiny three-dot menu icon or a small link at the bottom of the ticket page.
+6. Clicking "File TDR" opens a form with a dropdown list of obscure reason codes (e.g., "TDR Rule 1") without detailed descriptions of the refund percentage or rules.
+7. The user must click an external PDF link to open a 10-page document explaining the refund schedule, leaving them guessing about the status of their money.
+
+### Where it breaks
+The Booking History page and Transaction Management sub-menus, which lack a direct cancellation/TDR widget on the dashboard.
+
+### How I found it
+Inspected the IRCTC user dashboard. Found that there is no direct link to cancel or file TDR from the landing page or active bookings widget, requiring 4-5 clicks through nested menus.
+
+### Screenshot
+![Obscure and Nested Ticket Cancellation & TDR Filing](../assets/screenshots/tdr_cancellation_hidden.png)
