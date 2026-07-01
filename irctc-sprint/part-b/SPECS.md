@@ -57,7 +57,7 @@ Implement a **Virtual Queue (Waiting Room)** using Redis. Instead of immediately
 - API transaction error rate (HTTP 503) drops below 1%.
 
 ### Edge Cases and Constraints
-- **Queue Position Expiry:** If a user reaches the front of the queue but does not complete their booking in 5 minutes, their token expires, and they are returned to the queue tail.
+- **Queue Position Expiry & Lock (Updated post-Peer Review):** If a user reaches the front of the queue but does not complete booking within 5 minutes, their queue token expires. The associated seat hold is automatically released back to the inventory pool, and the user is redirected to the queue tail. This blocks inactive users from holding high-demand seats indefinitely.
 - **Payment Failure:** If payment fails at the gateway, the user is given a grace period of 3 minutes to retry payment without re-entering the queue.
 
 ### Wireframe
@@ -213,7 +213,7 @@ Add a visible countdown timer bar at the top of the booking screen. When the tim
 - Customer drop-offs due to timeout frustrations drop by 80%.
 
 ### Edge Cases and Constraints
-- **Unattended Session:** If the user does not click "Extend Session" within the 60-second window, the page automatically saves a draft of the form input to local storage (encrypted) and logs the user out. Upon logging back in, they can restore their booking progress.
+- **Unattended Session & Refresh Abuse Limit (Updated post-Peer Review):** If the user does not click "Extend Session" within 60 seconds, the client saves an encrypted local draft of the booking details and logs out. To prevent bot scripts from abusing keep-alive requests, a single login session is restricted to a maximum of 3 extensions (15 additional minutes), after which a hard re-authentication is enforced.
 
 ### Wireframe
 ![Session timeout wireframe](../assets/wireframes/session-timeout-modal-screen.png)
@@ -309,8 +309,8 @@ Add an "Active Trips" dashboard widget on the homepage. Each trip card features 
 - **Refund Transaction Schema**: `refund_id` (UUID), `ticket_id` (String), `status` (`initiated`, `processed`, `settled`), `refund_amount` (Decimal), `cancellation_charge` (Decimal), `payment_mode` (String).
 
 **API changes:**
-- `POST /api/v1/tickets/:id/cancellation-preview`
-  - *What it does:* Computes the estimated refund and charges.
+- `POST /api/v1/tickets/:id/cancellation-preview` (Updated post-Peer Review)
+  - *What it does:* Computes the estimated refund and charges. To prevent overloading backend CRIS mainframes, this API is called lazily on-demand when the user clicks "Cancel" to open the modal, rather than eager-loading all estimates on dashboard load.
   - *Response:* `{ "ticketId": "t-11", "originalFare": 840.00, "charges": 120.00, "refundAmount": 720.00, "feeRulesApplied": "Standard Cl. 47" }`
 - `POST /api/v1/tickets/:id/cancel`
   - *What it does:* Finalizes the cancellation.
